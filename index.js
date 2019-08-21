@@ -45,18 +45,28 @@ const typeDefs = gql`
 
     type Message {
         id: ID
+        sender_id: Int
+        receiver_id: Int
         sender: User
         receiver: User
         created_at: Date
         message: String!
         viewed: Boolean
+        chat_id: Int
         chat: Chat
+    }
+
+    input MessageInput {
+        sender_id: Int
+        receiver_id: Int
+        message: String!
+        chat_id: Int
     }
 
     type Mutation {
         register(data: UserRegisterInput): User
         createChat(data: ChatInput): Chat
-        sendMessage(from_user: Int, for_user: Int, message: String, chat_id: Int): Message
+        sendMessage(data: MessageInput): Message
     }
 
     type Query {
@@ -84,7 +94,18 @@ const resolvers = {
         },
         async receiver(chat) {
             return await db('users').where({ id: chat.receiver_id }).first()
+        },
+        async messages(chat) {
+            return await db('messages').where({ id: chat.id })
         }
+    },
+    Message: {
+        async sender(message) {
+            return await db('users').where({ id: message.sender_id }).first()
+        },
+        async receiver(message) {
+            return await db('users').where({ id: message.receiver_id }).first()
+        },
     },
     Query: {
         async login(_, { data }) {
@@ -104,8 +125,8 @@ const resolvers = {
             user.token = jwt.encode(data, 'secret')
             return user
         },
-        users() {
-            return db('users')
+        async users() {
+            return await db('users')
         },
         async chats(_, data) {
             return await db('chats').where({ sender_id: data.user_id })
@@ -143,9 +164,34 @@ const resolvers = {
                 throw new Error(e.sqlMessage)
             }
         },
-        async sendMessage(_, args) {
-            // Verifica se o chat existe
-            // Vincula a mensagem ao chat
+        async sendMessage(_, { data }) {
+            try {
+                const chat = await db('chats').where({ id: data.chat_id }).first()
+
+                if(!chat) {
+                    const chat = {
+                        last_message: '',
+                        sender_id: data.sender_id,
+                        receiver_id: data.receiver_id
+                    }
+    
+                    const [ id ] = await db('chats')
+                        .insert(chat)
+                    chat = db('chats').where({ id }).first()
+                }
+
+                const message = {
+                    sender_id: data.sender_id,
+                    receiver_id: data.receiver_id,
+                    message: data.message,
+                    chat_id: chat.id
+                }
+
+                const [ id ] = await db('messages').insert(message)
+                return await db('messages').where({id}).first()
+            }catch(e) {
+                throw new Error(e.sqlMessage)
+            }
         }
     }
 }
