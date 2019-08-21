@@ -1,5 +1,6 @@
 const { ApolloServer, gql } = require('apollo-server')
 const bcrypt = require('bcrypt-nodejs')
+const jwt = require('jwt-simple')
 
 const dbConf = require('./knexfile')
 const db = require('knex')(dbConf)
@@ -11,14 +12,19 @@ const typeDefs = gql`
         id: ID
         name: String!
         email: String!
-        password: String!
+        token: String
         chats: [Chat]
     }
 
     input UserRegisterInput {
-        name: String
-        email: String
-        password: String
+        name: String!
+        email: String!
+        password: String!
+    }
+
+    input UserLoginInput {
+        email: String!
+        password: String!
     }
 
     type Chat {
@@ -46,6 +52,7 @@ const typeDefs = gql`
     }
 
     type Query {
+        login(data: UserLoginInput!): User
         users: [User]
         chats(user_id: Int): [Chat]
         messages(chat_id: Int): [Message]
@@ -57,6 +64,28 @@ const typeDefs = gql`
 `
 
 const resolvers = {
+    Query: {
+        async login(_, { data }) {
+            const user = await db('users')
+                .where({ email: data.email })
+                .first()
+            
+            if(!user) {
+                throw new Error('User/User does not exists')
+            }
+
+            const equals = bcrypt.compareSync(data.password, user.password)
+            if(!equals) {
+                throw new Error('User/Invalid Password')
+            }
+
+            user.token = jwt.encode(data, 'secret')
+            return user
+        },
+        users() {
+            return db('users')
+        }
+    },
     Mutation: {
         async register(_, { data }) {
             try {
