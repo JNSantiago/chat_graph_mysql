@@ -2,8 +2,7 @@
 exports.up = function(knex, Promise) {
     return knex.schema.createTable('chats', table => {
         table.increments('id').primary()
-        table.string('name').notNull()
-        table.string('last_message').notNull()
+        table.string('last_message')
 
         table.integer('sender_id').unsigned()
         table.integer('receiver_id').unsigned()
