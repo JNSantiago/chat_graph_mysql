@@ -192,10 +192,11 @@ const resolvers = {
                 }
 
                 const [ id ] = await db('messages').insert(message)
-                let message = await db('messages').where({id}).first()
-                pubsub.publish(MESSAGE_SENT, { messageSent: message });
-                return message
+                const messageSent = await db('messages').where({id}).first()
+                pubSub.publish(MESSAGE_SENT, { messageSent });
+                return messageSent
             }catch(e) {
+                console.log(e)
                 throw new Error(e.sqlMessage)
             }
         }
@@ -210,29 +211,31 @@ const resolvers = {
 const validateToken = authToken => {
     const token = authToken && authToken.substring(7)
 
-    let promise = new Promise((resolve, reject))
-    if(token) {
-        try {
-            let tokenContent = jwt.decode(token, 'secret')
-            promise.resolve(tokenContent)
-        }catch(e) {
-            promise.reject(e)
+    return new Promise((resolve, reject) => {
+        if(token) {
+            try {
+                let tokenContent = jwt.decode(token, 'secret')
+                resolve(tokenContent)
+            }catch(e) {
+                reject(e)
+            }
+        }else {
+            reject('Nenhum Token Informado')
         }
-    }else {
-        promise.reject('Nenhum Token Informado')
-    }
+    })
 };
 
 const findUser = authToken => {
-    return async tokenValidationResult => {
+    return tokenValidationResult => {
         // ... finds user by auth token and return a Promise, rejects in case of an error
-        let promise = new Promise((resolve, reject))
-        try {
-            let user = await db('users').where({ email: tokenValidationResult.email }).first()
-            promise.resolve(user)
-        }catch(e) {
-            promise.reject(e)
-        }
+        return new Promise((resolve, reject) => {
+            try {
+                let user = db('users').where({ email: tokenValidationResult.email }).first()
+                resolve(user)
+            }catch(e) {
+                reject(e)
+            }
+        })
     };
 };
 
@@ -241,9 +244,10 @@ const server = new ApolloServer({
     resolvers,
     subscriptions: {
     onConnect: (connectionParams, webSocket) => {
-        if (connectionParams.authToken) {
-            return validateToken(connectionParams.authToken)
-                .then(findUser(connectionParams.authToken))
+        console.log(connectionParams)
+        if (connectionParams.authorization) {
+            return validateToken(connectionParams.authorization)
+                .then(findUser(connectionParams.authorization))
                 .then(user => {
                     console.log(user)
                     return {
