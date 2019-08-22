@@ -1,9 +1,13 @@
-const { ApolloServer, gql } = require('apollo-server')
+const { ApolloServer, gql, PubSub } = require('apollo-server')
 const bcrypt = require('bcrypt-nodejs')
 const jwt = require('jwt-simple')
 
 const dbConf = require('./knexfile')
 const db = require('knex')(dbConf)
+
+const pubSub = new PubSub()
+
+const MESSAGE_SENT = 'MESSAGE_SENT'
 
 const typeDefs = gql`
     scalar Date
@@ -188,19 +192,80 @@ const resolvers = {
                 }
 
                 const [ id ] = await db('messages').insert(message)
-                return await db('messages').where({id}).first()
+                let message = await db('messages').where({id}).first()
+                pubsub.publish(MESSAGE_SENT, { messageSent: message });
+                return message
             }catch(e) {
                 throw new Error(e.sqlMessage)
             }
         }
+    },
+    Subscription: {
+        messageSent: {
+            subscribe: () => pubSub.asyncIterator([MESSAGE_SENT]),
+        }
     }
 }
 
+const validateToken = authToken => {
+    const token = authToken && authToken.substring(7)
+
+    let promise = new Promise((resolve, reject))
+    if(token) {
+        try {
+            let tokenContent = jwt.decode(token, 'secret')
+            promise.resolve(tokenContent)
+        }catch(e) {
+            promise.reject(e)
+        }
+    }else {
+        promise.reject('Nenhum Token Informado')
+    }
+};
+
+const findUser = authToken => {
+    return async tokenValidationResult => {
+        // ... finds user by auth token and return a Promise, rejects in case of an error
+        let promise = new Promise((resolve, reject))
+        try {
+            let user = await db('users').where({ email: tokenValidationResult.email }).first()
+            promise.resolve(user)
+        }catch(e) {
+            promise.reject(e)
+        }
+    };
+};
+
 const server = new ApolloServer({
     typeDefs,
-    resolvers
+    resolvers,
+    subscriptions: {
+    onConnect: (connectionParams, webSocket) => {
+        if (connectionParams.authToken) {
+            return validateToken(connectionParams.authToken)
+                .then(findUser(connectionParams.authToken))
+                .then(user => {
+                    console.log(user)
+                    return {
+                        currentUser: user,
+                    };
+                });
+            }
+
+            throw new Error('Missing auth token!');
+        },
+    },
+    context: async ({ req, connection }) => {
+        if(connection) {
+            return connection.context
+        }else {
+            const token = req.headers.authorization || ""
+            return { token }
+        }
+    }
 })
 
-server.listen().then(({url}) => {
+server.listen().then(({ url, subscriptionsUrl }) => {
     console.log(`Executando em ${url}`)
+    console.log(`🚀 Subscriptions ready at ${subscriptionsUrl}`);
 })
