@@ -1,0 +1,15 @@
+type Chat {
+    id: ID
+    created_at: Date
+    last_message: Message
+    sender_id: Int
+    receiver_id: Int
+    sender: User
+    receiver: User
+    messages: [Message]
+}
+
+input ChatInput {
+    sender_id: Int
+    receiver_id: Int
+}

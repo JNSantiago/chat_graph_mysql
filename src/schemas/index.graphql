@@ -1,0 +1,8 @@
+scalar Date
+
+# import User, UserInput from 'user.graphql'
+# import Chat, ChatInput from 'chat.graphql'
+# import Message, MessageInput from 'message.graphql'
+# import Query from 'query.graphql'
+# import Mutation from 'mutation.graphql'
+# import Subscription from 'subscription.graphql'

@@ -1,0 +1,5 @@
+type Mutation {
+    register(data: UserRegisterInput): User
+    createChat(data: ChatInput): Chat
+    sendMessage(data: MessageInput): Message
+}

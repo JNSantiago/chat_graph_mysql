@@ -1,0 +1,7 @@
+type Query {
+    login(data: UserLoginInput!): User
+    users: [User]
+    chats(user_id: Int): [Chat]
+    registerChatLastMessage(message_id: Int): Message
+    messages(chat_id: Int): [Message]
+}

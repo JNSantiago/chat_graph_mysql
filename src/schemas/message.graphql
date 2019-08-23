@@ -1,0 +1,19 @@
+type Message {
+    id: ID
+    sender_id: Int
+    receiver_id: Int
+    sender: User
+    receiver: User
+    created_at: Date
+    message: String!
+    viewed: Boolean
+    chat_id: Int
+    chat: Chat
+}
+
+input MessageInput {
+    sender_id: Int
+    receiver_id: Int
+    message: String!
+    chat_id: Int
+}
